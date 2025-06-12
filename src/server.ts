@@ -8,19 +8,25 @@ import { ChatMessage } from './types';
 const app = express();
 const server = http.createServer(app);
 
-// Configure CORS
-app.use(cors());
+// ✅ CORS Configuration
+const FRONTEND_ORIGIN = 'https://chat-front-git-main-deekshithas-projects-ea8c1bc7.vercel.app';
+app.use(cors({
+  origin: FRONTEND_ORIGIN,
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
-// Create Socket.IO server with CORS settings
+// ✅ Socket.IO Server with CORS
 const io = new Server(server, {
   cors: {
-    origin: '*', // In production, specify your frontend URL instead of *
-    methods: ['GET', 'POST']
+    origin: FRONTEND_ORIGIN,
+    methods: ['GET', 'POST'],
+    credentials: true
   },
-  maxHttpBufferSize: 1e7 // 10MB - Set outside the CORS config
+  maxHttpBufferSize: 1e7 // 10MB
 });
 
-// Store connected users
+// User Type
 interface ConnectedUser {
   id: string;
   username: string;
@@ -28,71 +34,60 @@ interface ConnectedUser {
 
 const connectedUsers: ConnectedUser[] = [];
 
-// Listen for socket connections
+// Socket Connections
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
-  // Handle user registration
+  // Register user
   socket.on('register user', (username: string) => {
     const user: ConnectedUser = {
       id: socket.id,
       username
     };
-    
+
     connectedUsers.push(user);
     console.log(`User registered: ${username} (${socket.id})`);
-    
-    // Broadcast the updated user list
+
     io.emit('user list', connectedUsers.map(u => ({ id: u.id, username: u.username })));
   });
 
   // Handle chat messages
   socket.on('chat message', (msg: ChatMessage) => {
-    console.log(`Message received (${msg.type}):`, 
-                msg.type === 'text' ? msg.text : '[Image data]');
-    
-    // For images, validate the data before broadcasting
+    console.log(`Message received (${msg.type}):`, msg.type === 'text' ? msg.text : '[Image data]');
+
     if (msg.type === 'image' && msg.imageData) {
-      // Basic validation - ensure it starts with a data URL prefix
       if (!msg.imageData.startsWith('data:image/')) {
         console.log('Invalid image data received');
         return;
       }
-      
-      // Log image size for monitoring
+
       const sizeInKB = Math.round(msg.imageData.length / 1024);
       console.log(`Image size: ~${sizeInKB}KB`);
     }
-    
-    // Broadcast message to all connected clients
+
     io.emit('chat message', msg);
   });
 
-  // Handle disconnection
+  // Disconnect
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
-    
-    // Remove user from connected users
+
     const index = connectedUsers.findIndex(user => user.id === socket.id);
     if (index !== -1) {
       console.log(`User ${connectedUsers[index].username} disconnected`);
       connectedUsers.splice(index, 1);
-      
-      // Broadcast the updated user list
       io.emit('user list', connectedUsers.map(u => ({ id: u.id, username: u.username })));
     }
   });
 });
 
-// Define port
-const PORT = process.env.PORT || 3001;
-
-// Basic route for testing
+// Health route
 app.get('/', (req, res) => {
   res.send('Chat Server is running');
 });
 
-// Start server
+// Start Server
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
-}); 
+});
