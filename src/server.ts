@@ -8,10 +8,21 @@ import { ChatMessage } from './types';
 const app = express();
 const server = http.createServer(app);
 
+// ✅ Allowed Frontend URLs
+const allowedOrigins = [
+  'https://chat-front-git-main-deekshithas-projects-ea8c1bc7.vercel.app',
+  'https://chat-front-black.vercel.app'
+];
+
 // ✅ CORS Configuration
-const FRONTEND_ORIGIN = 'https://chat-front-git-main-deekshithas-projects-ea8c1bc7.vercel.app';
 app.use(cors({
-  origin: FRONTEND_ORIGIN,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST'],
   credentials: true
 }));
@@ -19,7 +30,13 @@ app.use(cors({
 // ✅ Socket.IO Server with CORS
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_ORIGIN,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true
   },
